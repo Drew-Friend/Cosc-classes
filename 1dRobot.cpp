@@ -15,7 +15,7 @@ public:
     int finalPosition(string commands, int A, int B)
     {
         //Error acounting for whether the left boundary was input as a positive or negative
-        if (A < 0)
+        if (A > 0)
         {
             A = A * -1;
         }
