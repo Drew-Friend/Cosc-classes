@@ -14,10 +14,6 @@ int main()
         {1, -1, 0, 2},
         {4, 5, 1, 1}};
     int C[m][n];
-    /*
-    16  14  7   10
-    6   9  -2  -1
-    */
     //For each row of A
     for (int i = 0; i < m; i++)
     {
