@@ -36,13 +36,11 @@ public:
     }
     void fullLoop(double start)
     {
-        int iter = 0;
         double recent = start;
-        while (abs((goal - actual)) > tolerance)
+        for (int i = 0; abs((goal - actual)) > tolerance; i++)
         {
-            iter += 1;
             recent = singleLoop(recent);
-            cout << recent << ",  " << iter << "\n";
+            cout << recent << ",  " << i << "\n";
         }
     }
 };
