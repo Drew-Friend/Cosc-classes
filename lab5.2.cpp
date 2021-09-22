@@ -9,10 +9,13 @@ int calculate(int scoreArray[2][11])
     int runningTotal = 0;
     for (int frame = 0; frame < 10; frame++)
     {
-        cout << frame << "     " << scoreArray[0][frame] << "     " << scoreArray[1][frame] << "\n";
-        //If strike
+        //If strike, add the next 2 rolls
         if (scoreArray[0][frame] == 10)
         {
+            /*If the first 2 rolls of 10 were both strikes, the case is treated differently.
+            If you get 2 consecutive strikes starting in frame 9, you check the second roll of frame 10,
+            But if you get 2 consecutive rolls starting anywhere else, you just check the first roll of the third consecutive frame 
+            */
             if (scoreArray[0][frame + 1] == 10 && (frame + 1 != 9))
             {
                 runningTotal += scoreArray[0][frame + 1] + scoreArray[0][frame + 2];
@@ -22,13 +25,13 @@ int calculate(int scoreArray[2][11])
                 runningTotal += scoreArray[0][frame + 1] + scoreArray[1][frame + 1];
             }
         }
-        //If spare
+        //If spare, add the next roll
         else if ((scoreArray[1][frame] + scoreArray[0][frame]) == 10)
         {
             runningTotal += scoreArray[0][frame + 1];
         }
+        //Add the roll being scored
         runningTotal += scoreArray[0][frame] + scoreArray[1][frame];
-        cout << frame << "     " << runningTotal << "\n";
     }
     return runningTotal;
 }
@@ -70,22 +73,24 @@ int main()
                     roll++;
                 }
             }
+            //If, in frame 10, they got a spare or strike
             if ((oneGame[0][9] + oneGame[1][9] == 10) || oneGame[0][9] == 10)
-
-            //if, in frame 10, they got a spare or strike
             {
                 cout << "Enter score for frame 10, roll 3:  ";
                 cin >> rollVal;
-                //Add third roll to second roll
                 oneGame[0][10] = rollVal;
             }
         }
+
+        //Calculate total score of player and add it to the list of scores
         scoreTotals.push_back(calculate(oneGame));
     }
+    //If no players
     if (playerNames.size() == 0)
     {
         cout << "No players were entered.\n";
     }
+
     else
     {
         //Print all players and scores
