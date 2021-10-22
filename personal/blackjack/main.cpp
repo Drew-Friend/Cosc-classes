@@ -1,100 +1,27 @@
-#include <string>
-#include <iostream>
-#include <sstream>
-#include <iomanip>
+#include "dealer.h"
 using namespace std;
 
-const int CARDS_IN_DECK = 52;
-int numPlayers = 3;
 //values in deck go:
 // AC, 2D, 3H, 4S, 5C, 6D, 7H, 8S, 9C, 10D, JH, QS, KC
 // AD, 2H, 3S, 4C, 5D, 6H, 7S, 8C, 9D, 10H, JS, QC, KD
 // AH, 2S, 3C, 4D, 5H, 6S, 7C, 8D, 9H, 10S, JC, QD, KH
 // AS, 2C, 3D, 4H, 5S, 6C, 7D, 8H, 9S, 10C, JD, QH, KS
-char suits[] = {'C', 'D', 'H', 'S'};
-char names[] = {'A', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'J', 'Q', 'K'};
+
 string hitting;
-
-class Dealer
-{
-    int deck[CARDS_IN_DECK] = {0};
-
-public:
-    string getHand(int player)
-    {
-        int checkNum = player;
-        int value;
-        ostringstream hand;
-        for (int i = 0; i < CARDS_IN_DECK; i++)
-        {
-            if (deck[i] == checkNum)
-            {
-                hand << names[i % 13] << suits[i % 4] << " ";
-                //I store 10 as 0 to be able to use all chars, so this adds a 1 to the beginning of that
-                if (hand.str()[0] == '0')
-                {
-                    hand.str('1' + hand.str());
-                }
-            }
-        }
-        return hand.str();
-    }
-
-    int GetRandom(int min, int max)
-    {
-        return min + (rand() % (max - min + 1));
-    }
-
-    //Still uses boolean logic, change that
-    int DealCard(int player)
-    {
-        int index;
-        while (true)
-        {
-            index = GetRandom(0, CARDS_IN_DECK - 1);
-            if (deck[index] == 0)
-            {
-                deck[index] = player;
-                return index;
-            }
-        }
-    }
-
-    int ScoreHand(int player)
-    {
-        int totalScore = 0;
-        int checkNum = player;
-        int value;
-        for (int i = 0; i < CARDS_IN_DECK; i++)
-        {
-            if (deck[i] == checkNum)
-            {
-                value = (i % 13) + 1;
-                if (value > 10)
-                {
-                    value = 10;
-                }
-                totalScore += value;
-            }
-        }
-        return totalScore;
-    }
-
-    string getCard()
-    {
-        istringstream rando;
-        string a, b;
-        rando.str(getHand(numPlayers + 1));
-        rando >> a >> b;
-        return b;
-    }
-};
+HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
 class Agent
 {
+    /*Inputs should be: 
+        Value of dealer's upcard
+        Value of agent's hand
+        If agent has an Ace
+        Game #
+        Average value of cards(with ace as 1)
+    */
 };
 
-Dealer dealer;
+D::Dealer dealer;
 
 void aiTurn(int player)
 {
@@ -103,6 +30,9 @@ void aiTurn(int player)
     {
         cout << "Player " << player << " busted!\n";
     }
+    // 7, 8, 9, 10, A: Don't stop until 18
+    // 6,5,4: Don't stop until 12g++
+    // 3,2: Don't stop until 13
     else
     {
         if (dealer.ScoreHand(player) < 18)
@@ -121,17 +51,17 @@ void aiTurn(int player)
 
 void dealerTurn()
 {
-    if (dealer.ScoreHand(numPlayers + 1) > 21)
+    if (dealer.ScoreHand(numPlayers) > 21)
     {
         cout << "Dealer busted!\n";
     }
     else
     {
-        if (dealer.ScoreHand(numPlayers + 1) < 17)
+        if (dealer.ScoreHand(numPlayers) < 17)
         {
-            dealer.DealCard(numPlayers + 1);
+            dealer.DealCard(numPlayers);
             cout << "Dealer hit!\n";
-            cout << "Dealer has cards:         " << setw(20) << left << dealer.getHand(numPlayers + 1) << '(' << dealer.ScoreHand(numPlayers + 1) << ")\n";
+            cout << "Dealer has cards:         " << setw(20) << left << dealer.getHand(numPlayers) << '(' << dealer.ScoreHand(numPlayers) << ")\n";
             dealerTurn();
         }
         else
@@ -164,25 +94,75 @@ void playerTurn()
     }
 }
 
+void findWinner()
+{
+    ostringstream winners;
+    ostringstream ties;
+    if (dealer.ScoreHand(numPlayers) > 21)
+    {
+        for (int i = 1; i < numPlayers; i++)
+        {
+            if (dealer.ScoreHand(i) <= 21)
+            {
+                if (i == 1)
+                    SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN);
+                winners << i << ", ";
+            }
+        }
+        cout << "\nDealer busted!\n";
+    }
+    else
+    {
+        for (int i = 1; i < numPlayers; i++)
+        {
+            if (dealer.ScoreHand(i) > dealer.ScoreHand(numPlayers) && dealer.ScoreHand(i) < 22)
+            {
+                if (i == 1)
+                    SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN);
+                winners << i << ", ";
+            }
+            if (dealer.ScoreHand(i) == dealer.ScoreHand(numPlayers))
+                ties << i << ", ";
+        }
+    }
+    if (winners.str() != "")
+    {
+        cout << "Players " << winners.str() << " win!\n";
+        if (ties.str() != "")
+            cout << "Players " << ties.str() << " tied the dealer.\n\n";
+        else
+            cout << '\n';
+    }
+    else
+    {
+        SetConsoleTextAttribute(hConsole, FOREGROUND_RED);
+        cout << "Dealer wins!\n\n";
+        if (ties.str() != "")
+            cout << "Players " << ties.str() << " tied the dealer.\n\n";
+    }
+    SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_BLUE);
+}
+
 void game()
 {
     //Begin decision for players, real and algorithm
     cout << "Dealer's face up card is: " << setw(20) << left << dealer.getCard() << '\n';
     cout << "You have cards:           " << setw(20) << left << dealer.getHand(1) << '(' << dealer.ScoreHand(1) << ")\n";
-    for (int i = 2; i <= numPlayers; i++)
+    for (int i = 2; i < numPlayers; i++)
     {
         cout << "Player " << i << " has cards:       " << setw(20) << left << dealer.getHand(i) << '(' << dealer.ScoreHand(i) << ")\n";
     }
+    cout << '\n';
     playerTurn();
     cout << '\n';
 
-    for (int i = 2; i <= numPlayers; i++)
+    for (int i = 2; i < numPlayers; i++)
     {
         aiTurn(i);
         cout << '\n';
     }
     //Dealer turn is slightly different
-    cout << "Dealer has cards:         " << setw(20) << left << dealer.getHand(numPlayers + 1) << '(' << dealer.ScoreHand(numPlayers + 1) << ")\n";
+    cout << "Dealer has cards:         " << setw(20) << left << dealer.getHand(numPlayers) << '(' << dealer.ScoreHand(numPlayers) << ")\n";
     dealerTurn();
     cout << '\n';
 }
@@ -190,28 +170,20 @@ void game()
 int main()
 {
     srand(time(0));
-    for (int i = 1; i <= ((numPlayers + 1) * 2); i++)
+    for (int j = 0; j < (CARDS_IN_DECK / 26); j++)
     {
-        dealer.DealCard(1 + (i % (numPlayers + 1)));
-    }
-
-    game();
-
-    int topScorer = 1;
-    //Determine winner, so long as no one busted
-    for (int i = 1; i <= numPlayers + 1; i++)
-    {
-        if ((dealer.ScoreHand(i) > dealer.ScoreHand(topScorer)) && (dealer.ScoreHand(i) < 22))
+        for (int i = 1; i <= (numPlayers * 2); i++)
         {
-            topScorer = i;
+            dealer.DealCard(1 + (i % numPlayers));
         }
-    }
-    if (topScorer != (numPlayers + 1))
-    {
-        cout << "Player " << topScorer << " wins!";
-    }
-    else
-    {
-        cout << "Dealer wins!";
+        cout << "Game " << j + 1 << ": \n";
+        game();
+
+        findWinner();
+        for (int k = 0; k < CARDS_IN_DECK; k++)
+        {
+            if (dealer.deck[k] != 0)
+                dealer.deck[k] = -1;
+        }
     }
 }
