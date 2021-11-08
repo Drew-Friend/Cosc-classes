@@ -1,3 +1,9 @@
+/*
+     Drew Friend
+     11/5/21
+     DIY Double Vector using pointers
+*/
+
 #include <iostream>
 #include <iomanip>
 #include <string>
