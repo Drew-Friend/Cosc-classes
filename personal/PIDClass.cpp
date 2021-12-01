@@ -6,7 +6,6 @@ class PIDController
     double integral = 0;
     double integralPrior = 0;
     double derive = 0;
-    double actual = 0;
     double output = 0;
 
 public:
@@ -15,8 +14,14 @@ public:
     double D = 0;
     double bias = 0;
     double timestep = 10;
+    double actual = 0;
     double goal = 0;
     double tolerance = 0;
+
+    double readError()
+    {
+        return e;
+    }
 
     double calculate_raw()
     {
