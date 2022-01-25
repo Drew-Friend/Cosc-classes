@@ -39,6 +39,7 @@ int main(int argc, char **argv)
     }
     numRooms = numRooms / 3;
 
+    //Room *roomArr = new Room[numRooms];
     Room roomArr[numRooms] = {*(new Room)};
     fin.clear();
     fin.seekg(0);
