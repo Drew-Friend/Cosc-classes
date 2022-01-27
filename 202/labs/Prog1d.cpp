@@ -1,9 +1,55 @@
 #include <iostream>
 #include <string>
+
+void decode(std::string &entry, int counter)
+{
+	for (int i = 0; i < entry.length(); i++)
+	{
+		//For each character, if it's a letter, move it by the encoding number, and cycle back if it extended past the bounds of the alphabet
+		if (isalpha(entry[i]))
+		{
+			entry[i] -= counter;
+
+			if ((isupper(entry[i]) && entry[i] >= 65 + 26) || (!isupper(entry[i]) && entry[i] >= 97 + 26))
+			{
+				entry[i] -= 26;
+			}
+			if ((isupper(entry[i]) && entry[i] < 65) || (!isupper(entry[i]) && entry[i] < 97))
+			{
+				entry[i] += 26;
+			}
+		}
+	}
+	std::cout << entry << '\n';
+}
+
+void encode(std::string &entry, int counter)
+{
+	for (int i = 0; i < entry.length(); i++)
+	{
+		//For each character, if it's a letter, move it by the encoding number, and cycle back if it extended past the bounds of the alphabet
+		if (isalpha(entry[i]))
+		{
+			entry[i] += counter;
+
+			if ((isupper(entry[i]) && entry[i] >= 65 + 26) || (!isupper(entry[i]) && entry[i] >= 97 + 26))
+			{
+				entry[i] -= 26;
+			}
+			if ((isupper(entry[i]) && entry[i] < 65) || (!isupper(entry[i]) && entry[i] < 97))
+			{
+				entry[i] += 26;
+			}
+		}
+	}
+	std::cout << entry << '\n';
+}
+
 int main(int argc, char **argv)
 {
 	std::string sent;
 	int count;
+	std::string entry;
 	//Ascii values for 'a' and 'A', used as reference points
 	int lowStart = 97;
 	int upStart = 65;
@@ -24,45 +70,27 @@ int main(int argc, char **argv)
 	}
 	else
 	{
+		//Changes char digit to corresponding int
+		//I know you said not to translate exact lines, but if I was looking back at this code, I would need that note
 		count -= '0';
 	}
 
 	sent = argv[1];
 	if (sent == "-encode")
 	{
-		count *= 1;
+		getline(std::cin, sent);
+		encode(sent, count);
 	}
 	else if (sent == "-decode")
 	{
-		//Negative multiplier to reverse encoding direction
-		count *= -1;
+		getline(std::cin, sent);
+		decode(sent, count);
 	}
 	else
 	{
 		std::cerr << "Invalid first parameter.\n";
 		return 1;
 	}
-
-	getline(std::cin, sent);
-	for (int i = 0; i < sent.length(); i++)
-	{
-		//For each character, if it's a letter, move it by the encoding number, and cycle back if it extended past the bounds of the alphabet
-		if (isalpha(sent[i]))
-		{
-			upper = isupper(sent[i]);
-			sent[i] += count;
-
-			if ((upper && sent[i] >= upStart + 26) || (!upper && sent[i] >= lowStart + 26))
-			{
-				sent[i] -= 26;
-			}
-			if ((upper && sent[i] < upStart) || (!upper && sent[i] < lowStart))
-			{
-				sent[i] += 26;
-			}
-		}
-	}
-	std::cout << sent << '\n';
 
 	return 0;
 }
