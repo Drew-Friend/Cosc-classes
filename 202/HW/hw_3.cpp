@@ -108,6 +108,17 @@ list::node *list::findnode(int i)
     }
 }
 
+// list::node *list::findnode(int i)
+// {
+//     if (i == -1)
+//         return head;
+//     node *p = (i < (N / 2)) ? head->next : head;
+//     i = (i < (N / 2)) ? i : N - i;
+//     while (i--)
+//         p = (i < (N / 2)) ? p->next : p->prev;
+//     return p;
+// }
+
 void printlist(const char *operation, list &v)
 {
     cout << setw(14) << operation
