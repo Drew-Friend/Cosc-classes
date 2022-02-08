@@ -75,22 +75,24 @@ int main(int argc, char **argv)
 		count -= '0';
 	}
 
-	sent = argv[1];
-	if (sent == "-encode")
+	while (true)
 	{
-		getline(std::cin, sent);
-		encode(sent, count);
+		sent = argv[1];
+		if (sent == "-encode")
+		{
+			getline(std::cin, sent);
+			encode(sent, count);
+		}
+		else if (sent == "-decode")
+		{
+			getline(std::cin, sent);
+			decode(sent, count);
+		}
+		else
+		{
+			std::cerr << "Invalid first parameter.\n";
+			return 1;
+		}
 	}
-	else if (sent == "-decode")
-	{
-		getline(std::cin, sent);
-		decode(sent, count);
-	}
-	else
-	{
-		std::cerr << "Invalid first parameter.\n";
-		return 1;
-	}
-
 	return 0;
 }
