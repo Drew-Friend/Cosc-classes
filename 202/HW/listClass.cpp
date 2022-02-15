@@ -97,24 +97,6 @@ list::node *list::findnode(int i)
         p = p->next;
     return p;
 }
-// list::node *list::findnode(int i)
-// {
-//     if (i == -1)
-//         return head;
-//     else if (i < (N / 2))
-//     {
-//         node *p = head->next;
-//         while (i--)
-//             p = p->next;
-//         return p;
-//     }
-//     i -= N / 2;
-//     node *p = head->prev;
-//     while (i--)
-//         p = p->prev;
-//     return p;
-// }
-
 void printlist(const char *operation, list &v)
 {
     cout << setw(14) << operation
