@@ -42,7 +42,7 @@ string random_card(bool verbose = false)
 	return card;
 }
 
-//Returns the index of 'word' in 'list'
+// Returns the index of 'word' in 'list'
 int find(string word, const string *list)
 {
 	for (int i = 0; true; i++)
@@ -79,13 +79,13 @@ int main(int argc, char *argv[])
 	while (fullSuit == -1)
 	{
 		string card = random_card(verbose);
-		//indices for substrings to use for word parsing
-		//0 index to first space is the value, after the word "of" to the end of the string is the suit
+		// indices for substrings to use for word parsing
+		// 0 index to first space is the value, after the word "of" to the end of the string is the suit
 		int firstInd = card.find(' ');
 		int secondInd = card.find('f') + 2;
 		table[find(card.substr(secondInd), suit)].insert(find(card.substr(0, firstInd), face));
 
-		//Check for completion in each suit, ie, if it has all 13 possible elements
+		// Check for completion in each suit, ie, if it has all 13 possible elements
 		for (int i = 0; i < 4; i++)
 		{
 			if (table[i].N == 13)
@@ -115,7 +115,7 @@ list::list()
 }
 list::~list()
 {
-	//Remove each element of the list, then the reference to the list
+	// Remove each element of the list, then the reference to the list
 	while (N--)
 	{
 		delete head->next;
@@ -126,9 +126,9 @@ void list::insert(const int &din)
 {
 	node *ref = head;
 	node *cut = head;
-	//Iterate 2 variables through the list,
-	//Cut stops if it sees the value currently being added to the list, for reference
-	//Ref does not stop, and is used to find the end of the string
+	// Iterate 2 variables through the list,
+	// Cut stops if it sees the value currently being added to the list, for reference
+	// Ref does not stop, and is used to find the end of the string
 	for (int i = 0; i < N; i++)
 	{
 		if (cut->next->data != din)
@@ -141,8 +141,8 @@ void list::insert(const int &din)
 			ref = ref->next;
 		}
 	}
-	//Make a temporary reference so the node can be cut out of place, and then referenced again, if a value was found
-	//Corner case when the new element is already the last in the list. Nothing needs to happen
+	// Make a temporary reference so the node can be cut out of place, and then referenced again, if a value was found
+	// Corner case when the new element is already the last in the list. Nothing needs to happen
 	if (ref != cut && cut->next != ref)
 	{
 		node *pH = cut->next;
@@ -152,7 +152,7 @@ void list::insert(const int &din)
 		cut->next = nullptr;
 	}
 
-	//Add a new node if it wasn't already found
+	// Add a new node if it wasn't already found
 	else if (cut->next != ref)
 	{
 		node *add = new node(din);
