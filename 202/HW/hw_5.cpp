@@ -24,7 +24,7 @@ public:
     void push(T val)
     {
         iterations++;
-        sum = sum + val;
+        sum += val;
     }
 };
 

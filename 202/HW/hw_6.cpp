@@ -9,9 +9,7 @@ int my_count(iT start, iT end, T target)
     // Step through each index of the list,
     // check if that index is a repeat of the start
     for (; start != end; ++start)
-    {
         counter += (*start == target) ? 1 : 0;
-    }
     return counter;
 }
 

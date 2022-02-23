@@ -83,14 +83,12 @@ int main(int argc, char *argv[])
 		// 0 index to first space is the value, after the word "of" to the end of the string is the suit
 		int firstInd = card.find(' ');
 		int secondInd = card.find('f') + 2;
-		table[find(card.substr(secondInd), suit)].insert(find(card.substr(0, firstInd), face));
+		secondInd = find(card.substr(secondInd), suit);
+		table[secondInd].insert(find(card.substr(0, firstInd), face));
 
 		// Check for completion in each suit, ie, if it has all 13 possible elements
-		for (int i = 0; i < 4; i++)
-		{
-			if (table[i].N == 13)
-				fullSuit = i;
-		}
+		if (table[secondInd].N == 13)
+			fullSuit = secondInd;
 	}
 	// print formatted table contents to stdout
 	for (int i = 0; i < 4; i++)
