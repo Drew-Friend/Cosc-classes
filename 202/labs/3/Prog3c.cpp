@@ -1,4 +1,3 @@
-#include <list>
 #include <algorithm>
 #include <iostream>
 #include <vector>
@@ -12,7 +11,7 @@ public:
   bool operator()(int);
 
 private:
-  list<int> pList;
+  vector<int> pList;
   void expand_plist(int);
 };
 
@@ -39,7 +38,7 @@ int main(int argc, char *argv[])
 // Make sure list covers input, search list for input
 bool isprime::operator()(int number)
 {
-  if (pList.back() < number)
+  if (pList.back() <= number)
     expand_plist(number);
 
   return binary_search(pList.begin(), pList.end(), number);
@@ -49,7 +48,7 @@ bool isprime::operator()(int number)
 void isprime::expand_plist(int number)
 {
   int counter = pList.back();
-  while (pList.back() < number)
+  while (pList.back() <= number)
   {
     counter++;
     int root = ceil(sqrt(counter));

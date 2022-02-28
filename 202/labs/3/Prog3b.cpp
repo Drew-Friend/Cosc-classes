@@ -1,6 +1,6 @@
 #include <cmath>
 #include <iostream>
-#include <list>
+#include <vector>
 #include <algorithm>
 
 using namespace std;
@@ -15,16 +15,16 @@ public:
   bool operator()(int);
 
 private:
-  list<int> pList;
+  vector<int> pList;
   void expand_plist(int);
 };
 
 // Make sure list covers input, search list for input
 bool isprime::operator()(int number)
 {
-  if (pList.back() < number)
+  if (pList.back() <= number)
     expand_plist(number);
-  list<int>::iterator index;
+  vector<int>::iterator index;
 
   index = find(pList.begin(), pList.end(), number);
 
@@ -35,7 +35,7 @@ bool isprime::operator()(int number)
 void isprime::expand_plist(int number)
 {
   int counter = pList.back();
-  while (pList.back() < number)
+  while (pList.back() <= number)
   {
     counter++;
     int root = ceil(sqrt(counter));
