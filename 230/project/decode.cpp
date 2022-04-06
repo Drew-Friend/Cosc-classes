@@ -213,8 +213,7 @@ class Machine
       mDO.offset = sign_extend((((mFO.instruction >> 31) & 1) << 12) |       // 12   from 31
                                    (((mFO.instruction >> 7) & 1) << 11) |    // 11   from 7
                                    (((mFO.instruction >> 25) & 0x3f) << 5) | // 5-10 from 25-30
-                                   (((mFO.instruction >> 8) & 0xf) << 1)     // 1-4  from 8 -11
-                               ,
+                                   (((mFO.instruction >> 8) & 0xf) << 1),    // 1-4  from 8 -11
                                12);
    }
    void decode_u() // Used for AUIPC
@@ -366,7 +365,7 @@ int main(int argc, char **argv)
    {
       // Fetch an instruction into RAM and print HEX
       mach.fetch();
-      cout << mach.debug_fetch_out() << '\n';
+      // cout << mach.debug_fetch_out() << '\n';
       // Break down the instruction into arguements and print details
       mach.decode();
       cout << mach.debug_decode_out() << '\n';

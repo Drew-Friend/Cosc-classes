@@ -1,9 +1,7 @@
 // Drew Friend
-// 3/7/22
-// Decoding Lab:
-//    Break down the individual instructions previously fetched.
-//    Find instruction type, and decode further depending on the breakdown of that instruction
-//    At the end of this portion, the Machine knows what the instruction is, and has all required arguements to complete it.
+// 4/5/22
+// Execute Lab:
+//
 
 // Breaking down the immediate bits/explaining where they come from is for my own benefit
 // not to count as my "explaining the code", per the assignment
@@ -129,6 +127,39 @@ struct DecodeOut
    }
 };
 
+// Code from the execute portion
+enum AluCommands
+{
+   ALU_ADD,
+   ALU_SUB,
+   ALU_MUL,
+   ALU_DIV,
+   ALU_REM,
+   ALU_SLL,
+   ALU_SRL,
+   ALU_SRA,
+   ALU_AND,
+   ALU_OR,
+   ALU_XOR,
+   ALU_NOT
+};
+struct ExecuteOut
+{
+   int64_t result;
+   uint8_t n, z, c, v;
+
+   friend ostream &operator<<(ostream &out, const ExecuteOut &eo)
+   {
+      ostringstream sout;
+      sout << "Result: " << eo.result << " [NZCV]: "
+           << (uint32_t)eo.n
+           << (uint32_t)eo.z
+           << (uint32_t)eo.c
+           << (uint32_t)eo.v;
+      return out << sout.str();
+   }
+};
+
 class Machine
 {
    char *mMemory;           // The memory.
@@ -136,8 +167,9 @@ class Machine
    int64_t mPC;             // The program counter
    int64_t mRegs[NUM_REGS]; // The register file
 
-   FetchOut mFO;  // Result of the fetch() method.
-   DecodeOut mDO; // Result of the decode() method.
+   FetchOut mFO;   // Result of the fetch() method.
+   DecodeOut mDO;  // Result of the decode() method.
+   ExecuteOut mEO; // Result of the execute() method.
 
    // Read from the internal memory
    // Usage:
@@ -198,7 +230,6 @@ class Machine
       mDO.funct3 = (mFO.instruction >> 12) & 7;
       mDO.left_val = get_xreg(mFO.instruction >> 15); // get_xreg truncates for us
       mDO.right_val = get_xreg(mFO.instruction >> 20);
-      cout << (mFO.instruction >> 20) << '\n';
       mDO.offset = sign_extend((((mFO.instruction >> 25) & 0x7f) << 5) | // 5-11 from 25-31
                                    (((mFO.instruction >> 7) & 0x1f)),    // 0-4  from 7-11
                                11);
@@ -213,8 +244,7 @@ class Machine
       mDO.offset = sign_extend((((mFO.instruction >> 31) & 1) << 12) |       // 12   from 31
                                    (((mFO.instruction >> 7) & 1) << 11) |    // 11   from 7
                                    (((mFO.instruction >> 25) & 0x3f) << 5) | // 5-10 from 25-30
-                                   (((mFO.instruction >> 8) & 0xf) << 1)     // 1-4  from 8 -11
-                               ,
+                                   (((mFO.instruction >> 8) & 0xf) << 1),    // 1-4  from 8 -11
                                12);
    }
    void decode_u() // Used for AUIPC
@@ -233,6 +263,61 @@ class Machine
                                    (((mFO.instruction >> 21) & 0x3ff) << 1)   // 1-10  from 21-30
                                ,
                                20);
+   }
+
+   // Execute an instruction given ALU command and inputs
+   ExecuteOut alu(AluCommands cmd, int64_t left, int64_t right)
+   {
+      ExecuteOut ret;
+      switch (cmd)
+      {
+      case ALU_ADD:
+         ret.result = left + right;
+         break;
+      case ALU_SUB:
+         ret.result = left - right;
+         break;
+      case ALU_MUL:
+         ret.result = left * right;
+         break;
+      case ALU_DIV:
+         ret.result = left / right;
+         break;
+      case ALU_REM:
+         ret.result = left % right;
+         break;
+      case ALU_SLL:
+         ret.result = left << right;
+         break;
+      case ALU_SRL:
+         ret.result = static_cast<uint64_t>(left) >> right;
+         break;
+      case ALU_SRA:
+         ret.result = left >> right;
+         break;
+      case ALU_AND:
+         ret.result = left & right;
+         break;
+      case ALU_OR:
+         ret.result = left | right;
+         break;
+      case ALU_XOR:
+         ret.result = left ^ right;
+         break;
+      case ALU_NOT:
+         ret.result = ~left;
+         break;
+      }
+      // Now that we have the result, determine the flags.
+      uint8_t sign_left = (left >> 63) & 1;
+      uint8_t sign_right = (right >> 63) & 1;
+      uint8_t sign_result = (ret.result >> 63) & 1;
+      ret.z = !ret.result;
+      ret.n = sign_result;
+      ret.v = ~sign_left & ~sign_right & sign_result |
+              sign_left & sign_right & ~sign_result;
+      ret.c = (ret.result > left) || (ret.result > right);
+      return ret;
    }
 
 public:
@@ -321,6 +406,212 @@ public:
    {
       return mDO;
    }
+
+   // Code from the Execute portion: Involves converting instructions to ALU and calculating result/flags
+   void execute()
+   {
+      AluCommands cmd;
+      // Most instructions will follow left/right
+      // but some won't, so we need these:
+      int64_t op_left = mDO.left_val;
+      int64_t op_right = mDO.right_val;
+
+      if (mDO.op == BRANCH)
+      {
+         // A branch needs to subtract the operands
+         cmd = ALU_SUB;
+      }
+      else if (mDO.op == LOAD || mDO.op == STORE)
+      {
+         // For loads and stores, we need to add the
+         // offset with the base register.
+         cmd = ALU_ADD;
+         op_right = (mDO.op == LOAD) ? op_right : mDO.offset;
+      }
+      else if (mDO.op == OP)
+      {
+         // We can't tell which ALU command to use until
+         // we read the funct3 and funct7
+         switch (mDO.funct3)
+         {
+         case 0b000: // ADD or SUB
+            if (mDO.funct7 == 0)
+            {
+               cmd = ALU_ADD;
+            }
+            else if (mDO.funct7 == 32)
+            {
+               cmd = ALU_SUB;
+            }
+            break;
+         case 0b001: // Shift Left Logical
+            cmd = ALU_SLL;
+            break;
+         case 0b010: // Set if less than   **Uses The negative flag as the answer, not the result**
+            cmd = ALU_SUB;
+            break;
+         case 0b011: // Set if less than unsigned **Uses The negative flag as the answer, not the result**
+            cmd = ALU_SUB;
+            break;
+         case 0b100: // XOR
+            cmd = ALU_XOR;
+            break;
+         case 0b101: // Right Shift, Arithmatic or Logical
+            if (mDO.funct7 == 0)
+            {
+               cmd = ALU_SRL;
+            }
+            else if (mDO.funct7 == 32)
+            {
+               cmd = ALU_SRA;
+            }
+            break;
+         case 0b110: // OR
+            cmd = ALU_OR;
+            break;
+         case 0b111: // AND
+            cmd = ALU_AND;
+            break;
+         }
+      }
+      else if (mDO.op == OP_32)
+      {
+         op_left = sign_extend(op_left, 31);
+         op_right = sign_extend(op_right, 31);
+         // ALU doesn't case if it's 32 bit, so the switch statement is identical once you extend.
+         switch (mDO.funct3)
+         {
+         case 0b000: // ADD or SUB
+            if (mDO.funct7 == 0)
+            {
+               cmd = ALU_ADD;
+            }
+            else if (mDO.funct7 == 32)
+            {
+               cmd = ALU_SUB;
+            }
+            break;
+         case 0b001: // Shift Left Logical
+            cmd = ALU_SLL;
+            break;
+         case 0b010: // Set if less than   **Uses The negative flag as the answer, not the result**
+            cmd = ALU_SUB;
+            break;
+         case 0b011: // Set if less than unsigned **Uses The negative flag as the answer, not the result**
+            cmd = ALU_SUB;
+            break;
+         case 0b100: // XOR
+            cmd = ALU_XOR;
+            break;
+         case 0b101: // Right Shift, Arithmatic or Logical
+            if (mDO.funct7 == 0)
+            {
+               cmd = ALU_SRL;
+            }
+            else if (mDO.funct7 == 32)
+            {
+               cmd = ALU_SRA;
+            }
+            break;
+         case 0b110: // OR
+            cmd = ALU_OR;
+            break;
+         case 0b111: // AND
+            cmd = ALU_AND;
+            break;
+         }
+      }
+      else if (mDO.op == OP_IMM)
+      {
+         // Look and see which ALU op needs to be executed.
+         switch (mDO.funct3)
+         {
+         case 0b000: // ADD, there are not subtraction functions for immediates.
+            cmd = ALU_ADD;
+            break;
+         case 0b001: // Shift Left Logical
+            cmd = ALU_SLL;
+            break;
+         case 0b010: // Set if less than   **Uses The negative flag as the answer, not the result**
+            cmd = ALU_SUB;
+            break;
+         case 0b011: // Set if less than unsigned **Uses The negative flag as the answer, not the result**
+            cmd = ALU_SUB;
+            break;
+         case 0b100: // XOR
+            cmd = ALU_XOR;
+            break;
+         case 0b101: // Right Shift, Arithmatic or Logical
+            if (mDO.funct7 == 0)
+            {
+               cmd = ALU_SRL;
+            }
+            else if (mDO.funct7 == 32)
+            {
+               cmd = ALU_SRA;
+            }
+            break;
+         case 0b110: // OR
+            cmd = ALU_OR;
+            break;
+         case 0b111: // AND
+            cmd = ALU_AND;
+            break;
+         }
+      }
+      else if (mDO.op == OP_IMM_32)
+      {
+         op_left = sign_extend(op_left, 31);
+         op_right = sign_extend(op_right, 31);
+         // This is just like OP_IMM except we truncated
+         // the left and right ops.
+         switch (mDO.funct3)
+         {
+         case 0b000: // ADD, there are not subtraction functions for immediates.
+            cmd = ALU_ADD;
+            break;
+         case 0b001: // Shift Left Logical
+            cmd = ALU_SLL;
+            break;
+         case 0b010: // Set if less than   **Uses The negative flag as the answer, not the result**
+            cmd = ALU_SUB;
+            break;
+         case 0b011: // Set if less than unsigned **Uses The negative flag as the answer, not the result**
+            cmd = ALU_SUB;
+            break;
+         case 0b100: // XOR
+            cmd = ALU_XOR;
+            break;
+         case 0b101: // Right Shift, Arithmatic or Logical
+            if (mDO.funct7 == 0)
+            {
+               cmd = ALU_SRL;
+            }
+            else if (mDO.funct7 == 32)
+            {
+               cmd = ALU_SRA;
+            }
+            break;
+         case 0b110: // OR
+            cmd = ALU_OR;
+            break;
+         case 0b111: // AND
+            cmd = ALU_AND;
+            break;
+         }
+      }
+      else if (mDO.op == JALR)
+      {
+         // JALR has an offset and a register value that
+         // need to be added together.
+         cmd = ALU_ADD;
+      }
+      mEO = alu(cmd, op_left, op_right);
+   }
+   ExecuteOut &debug_execute_out()
+   {
+      return mEO;
+   }
 };
 
 int main(int argc, char **argv)
@@ -367,9 +658,16 @@ int main(int argc, char **argv)
       // Fetch an instruction into RAM and print HEX
       mach.fetch();
       cout << mach.debug_fetch_out() << '\n';
+
       // Break down the instruction into arguements and print details
       mach.decode();
       cout << mach.debug_decode_out() << '\n';
+
+      // Calculate the required math and print result / flags
+      mach.execute();
+      cout << mach.debug_execute_out() << '\n';
+
+      // Move to the next command
       mach.set_pc(mach.get_pc() + 4);
    }
    return 0;
