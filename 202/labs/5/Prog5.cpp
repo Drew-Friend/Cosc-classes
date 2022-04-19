@@ -96,9 +96,7 @@ bool sudoku::solve(bool trash)
     if (prevLow.size() >= test.size())
     {
       if (test.size() == 0)
-      {
         return false;
-      }
       if (prevLow[0] > test[0])
       {
         index = empty_sqrs[i];
