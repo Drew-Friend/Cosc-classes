@@ -1,9 +1,7 @@
 // Drew Friend
-// 4/5/22
-// Execute Lab:
-//    Convert decoded instructions into the calculations that the ALU must perform
-//    At the end of this protion, the required math for the instruction has been completed,
-//    but nothing is being done with it yet.
+// 4/6/22
+// Memory Lab:
+//
 
 // Breaking down the immediate bits/explaining where they come from is for my own benefit
 // not to count as my "explaining the code", per the assignment
@@ -162,6 +160,19 @@ struct ExecuteOut
    }
 };
 
+// Code from the memory portion
+struct MemoryOut
+{
+   int64_t value;
+
+   friend ostream &operator<<(ostream &out, const MemoryOut &mo)
+   {
+      ostringstream sout;
+      sout << "0x" << hex << right << setfill('0') << setw(16) << mo.value;
+      return out << sout.str();
+   }
+};
+
 class Machine
 {
    char *mMemory;           // The memory.
@@ -169,9 +180,10 @@ class Machine
    int64_t mPC;             // The program counter
    int64_t mRegs[NUM_REGS]; // The register file
 
-   FetchOut mFO;   // Result of the fetch() method.
-   DecodeOut mDO;  // Result of the decode() method.
+   FetchOut mFO;   // Result of the fetch()   method.
+   DecodeOut mDO;  // Result of the decode()  method.
    ExecuteOut mEO; // Result of the execute() method.
+   MemoryOut mMO;  // Result of the memory()  method.
 
    // Read from the internal memory
    // Usage:
@@ -218,7 +230,7 @@ class Machine
       mDO.right_val = get_xreg(mFO.instruction >> 20);
       mDO.funct7 = (mFO.instruction >> 25) & 0x7f;
    }
-   void decode_i() // Used for Load, JALR, OP_IMM, and OP_IMM_32
+   void decode_i() // Used for Load, JALR, OP_IMM, SYSTEM, and OP_IMM_32
    {
       // I has an rd instead of immediate values, but is lacking a right value in favor of more immediate digits, all sequentially
       mDO.rd = (mFO.instruction >> 7) & 0x1f;
@@ -249,11 +261,11 @@ class Machine
                                    (((mFO.instruction >> 8) & 0xf) << 1),    // 1-4  from 8 -11
                                12);
    }
-   void decode_u() // Used for AUIPC and LUI
+   void decode_u() // Used for AUIPC, LUI
    {
-      // This one is real easy. RD is in the same space it was listed for B, and the offset maps over exactly
+      // THis one is real easy. RD is in the same space it was listed for B, and the offset maps over exactly
       mDO.rd = (mFO.instruction >> 7) & 0x1f;
-      mDO.right_val = sign_extend(mFO.instruction & 0xFFFFF000, 31); // 12-31 from 12-31
+      mDO.offset = sign_extend(mFO.instruction & 0xFFFFF000, 31); // 12-31 from 12-31
    }
    void decode_j() // Used for JAL
    {
@@ -525,6 +537,7 @@ public:
       {
          // JALR has an offset and a register value that
          // need to be added together.
+         mDO.left_val = 0;
          cmd = ALU_ADD;
       }
       else if (mDO.op == LUI) 
@@ -554,6 +567,74 @@ public:
    ExecuteOut &debug_execute_out()
    {
       return mEO;
+   }
+
+   // Code from the Memory portion:
+   void memory()
+   {
+      // Store the appropriate number of bits
+      if (mDO.op == STORE)
+      {
+         switch (mDO.funct3)
+         {
+         case 0b000: // SB
+            memory_write<uint8_t>(mEO.result, mDO.right_val);
+            break;
+         case 0b001: // SH
+            memory_write<uint16_t>(mEO.result, mDO.right_val);
+            break;
+         case 0b010: // SW
+            memory_write<uint32_t>(mEO.result, mDO.right_val);
+            break;
+         case 0b011: // SD
+            memory_write<uint64_t>(mEO.result, mDO.right_val);
+            break;
+         default:
+            cerr << "[MEMORY: STORE]: Invalid funct3: " << mDO.funct3 << '\n';
+            break;
+         }
+      }
+      // Load the appropriate number of bits, as the right datatype
+      else if (mDO.op == LOAD)
+      {
+         switch (mDO.funct3)
+         {
+         case 0b000: // LB
+            mMO.value = memory_read<int8_t>(mEO.result);
+            break;
+         case 0b001: // LH
+            mMO.value = memory_read<int16_t>(mEO.result);
+            break;
+         case 0b010: // LW
+            mMO.value = memory_read<int32_t>(mEO.result);
+            break;
+         case 0b011: // LD
+            mMO.value = memory_read<int64_t>(mEO.result);
+            break;
+         case 0b100: // LBU
+            mMO.value = memory_read<uint8_t>(mEO.result);
+            break;
+         case 0b101: // LHU
+            mMO.value = memory_read<uint16_t>(mEO.result);
+            break;
+         case 0b110: // LWU
+            mMO.value = memory_read<uint32_t>(mEO.result);
+            break;
+         default:
+            cerr << "[MEMORY: LOAD]: Invalid funct3: " << mDO.funct3 << '\n';
+            break;
+         }
+      }
+      else
+      {
+         // If this is not a LOAD or STORE, then this stage just copies
+         // the ALU result.
+         mMO.value = mEO.result;
+      }
+   }
+   MemoryOut &debug_memory_out()
+   {
+      return mMO;
    }
 };
 
@@ -599,7 +680,7 @@ int main(int argc, char **argv)
    {
       // Fetch an instruction into RAM and print HEX
       mach.fetch();
-      cout << mach.debug_fetch_out() << '\n';
+      //cout << mach.debug_fetch_out() << '\n';
 
       // Break down the instruction into arguements and print details
       mach.decode();
@@ -607,7 +688,11 @@ int main(int argc, char **argv)
 
       // Calculate the required math and print result / flags
       mach.execute();
-      cout << mach.debug_execute_out() << '\n';
+      //cout << mach.debug_execute_out() << '\n';
+
+      // Use memory for the load and store instructions as needed
+      mach.memory();
+      //cout << mach.debug_memory_out() << '\n';
 
       // Move to the next command
       mach.set_pc(mach.get_pc() + 4);

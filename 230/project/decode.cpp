@@ -198,7 +198,6 @@ class Machine
       mDO.funct3 = (mFO.instruction >> 12) & 7;
       mDO.left_val = get_xreg(mFO.instruction >> 15); // get_xreg truncates for us
       mDO.right_val = get_xreg(mFO.instruction >> 20);
-      cout << (mFO.instruction >> 20) << '\n';
       mDO.offset = sign_extend((((mFO.instruction >> 25) & 0x7f) << 5) | // 5-11 from 25-31
                                    (((mFO.instruction >> 7) & 0x1f)),    // 0-4  from 7-11
                                11);
@@ -288,6 +287,7 @@ public:
       // Decode the rest of mDO based on the instruction type
       switch (mDO.op)
       {
+      case SYSTEM:
       case LOAD:
       case JALR:
       case OP_IMM:
@@ -356,8 +356,7 @@ int main(int argc, char **argv)
    }
 
    // Reading the file into "ram" buffer
-   for (; fin.good(); ++ptr)
-      *ptr = fin.get();
+   fin.read(ptr, len);
    fin.close();
 
    // Debugging
@@ -365,7 +364,7 @@ int main(int argc, char **argv)
    {
       // Fetch an instruction into RAM and print HEX
       mach.fetch();
-      // cout << mach.debug_fetch_out() << '\n';
+      cout << mach.debug_fetch_out() << '\n';
       // Break down the instruction into arguements and print details
       mach.decode();
       cout << mach.debug_decode_out() << '\n';

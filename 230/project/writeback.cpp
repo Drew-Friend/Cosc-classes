@@ -1,17 +1,15 @@
 // Drew Friend
-// 4/5/22
-// Execute Lab:
-//    Convert decoded instructions into the calculations that the ALU must perform
-//    At the end of this protion, the required math for the instruction has been completed,
-//    but nothing is being done with it yet.
+// 4/29/22
+// Writeback Lab:
 
-// Breaking down the immediate bits/explaining where they come from is for my own benefit
-// not to count as my "explaining the code", per the assignment
+// Completing the pipeline
 #include <stdint.h>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <fstream>
+#include <cstdio>
+#include <cstdlib>
 
 using namespace std;
 
@@ -162,6 +160,19 @@ struct ExecuteOut
    }
 };
 
+// Code from the memory portion
+struct MemoryOut
+{
+   int64_t value;
+
+   friend ostream &operator<<(ostream &out, const MemoryOut &mo)
+   {
+      ostringstream sout;
+      sout << "0x" << hex << right << setfill('0') << setw(16) << mo.value;
+      return out << sout.str();
+   }
+};
+
 class Machine
 {
    char *mMemory;           // The memory.
@@ -169,9 +180,10 @@ class Machine
    int64_t mPC;             // The program counter
    int64_t mRegs[NUM_REGS]; // The register file
 
-   FetchOut mFO;   // Result of the fetch() method.
-   DecodeOut mDO;  // Result of the decode() method.
+   FetchOut mFO;   // Result of the fetch()   method.
+   DecodeOut mDO;  // Result of the decode()  method.
    ExecuteOut mEO; // Result of the execute() method.
+   MemoryOut mMO;  // Result of the memory()  method.
 
    // Read from the internal memory
    // Usage:
@@ -218,7 +230,7 @@ class Machine
       mDO.right_val = get_xreg(mFO.instruction >> 20);
       mDO.funct7 = (mFO.instruction >> 25) & 0x7f;
    }
-   void decode_i() // Used for Load, JALR, OP_IMM, and OP_IMM_32
+   void decode_i() // Used for Load, JALR, OP_IMM, SYSTEM, and OP_IMM_32
    {
       // I has an rd instead of immediate values, but is lacking a right value in favor of more immediate digits, all sequentially
       mDO.rd = (mFO.instruction >> 7) & 0x1f;
@@ -229,6 +241,7 @@ class Machine
    void decode_s() // Used for Store
    {
       // Only real difference from B is that the immediate is more sequential and uses 0-11 instead of 1-12
+      mDO.rd = 0;
       mDO.funct3 = (mFO.instruction >> 12) & 7;
       mDO.left_val = get_xreg(mFO.instruction >> 15); // get_xreg truncates for us
       mDO.right_val = get_xreg(mFO.instruction >> 20);
@@ -239,6 +252,7 @@ class Machine
    void decode_b() // Used for Branch
    {
       // mDO.rd        = (mFO.instruction >> 7) & 0x1f; //It doesn't look like b uses RD?
+      mDO.rd = 0;
       // This code was given, and was the code the other decodes were based off of
       mDO.funct3 = (mFO.instruction >> 12) & 7;
       mDO.left_val = get_xreg(mFO.instruction >> 15); // get_xreg truncates for us
@@ -249,11 +263,11 @@ class Machine
                                    (((mFO.instruction >> 8) & 0xf) << 1),    // 1-4  from 8 -11
                                12);
    }
-   void decode_u() // Used for AUIPC and LUI
+   void decode_u() // Used for AUIPC, LUI
    {
-      // This one is real easy. RD is in the same space it was listed for B, and the offset maps over exactly
+      // THis one is real easy. RD is in the same space it was listed for B, and the offset maps over exactly
       mDO.rd = (mFO.instruction >> 7) & 0x1f;
-      mDO.right_val = sign_extend(mFO.instruction & 0xFFFFF000, 31); // 12-31 from 12-31
+      mDO.offset = sign_extend(mFO.instruction & 0xFFFFF000, 31); // 12-31 from 12-31
    }
    void decode_j() // Used for JAL
    {
@@ -367,11 +381,11 @@ public:
       uint8_t opcode_map_row = (mFO.instruction >> 5) & 3;
       uint8_t opcode_map_col = (mFO.instruction >> 2) & 7;
       uint8_t inst_size = mFO.instruction & 3;
-      if (inst_size != 3)
-      {
-         cerr << "[DECODE] Invalid instruction (not a 32-bit instruction).\n";
-         return;
-      }
+      // if (inst_size != 3)
+      // {
+      //    cerr << "[DECODE] Invalid instruction (not a 32-bit instruction).\n";
+      //    return;
+      // }
       mDO.op = OPCODE_MAP[opcode_map_row][opcode_map_col];
       // Decode the rest of mDO based on the instruction type
       switch (mDO.op)
@@ -529,17 +543,19 @@ public:
       }
       else if (mDO.op == LUI) 
       {
-         mDO.left_val = 0;
+         op_left = 0;
          cmd = ALU_ADD;
       }
       else if (mDO.op == AUIPC) 
       {
-         mDO.left_val = mPC;
+         op_left = mPC;
+         op_right = mDO.offset;
          cmd = ALU_ADD;
       }
       else if (mDO.op == JAL) 
       {
-         mDO.left_val = mPC;
+         op_left = mPC;
+         op_right = mDO.offset;
          cmd = ALU_ADD;
       }
       else if (mDO.op == SYSTEM) 
@@ -554,6 +570,119 @@ public:
    ExecuteOut &debug_execute_out()
    {
       return mEO;
+   }
+
+   // Code from the Memory portion:
+   void memory()
+   {
+      // Store the appropriate number of bits
+      if (mDO.op == STORE)
+      {
+         switch (mDO.funct3)
+         {
+         case 0b000: // SB
+            memory_write<uint8_t>(mEO.result, mDO.right_val);
+            break;
+         case 0b001: // SH
+            memory_write<uint16_t>(mEO.result, mDO.right_val);
+            break;
+         case 0b010: // SW
+            memory_write<uint32_t>(mEO.result, mDO.right_val);
+            break;
+         case 0b011: // SD
+            memory_write<uint64_t>(mEO.result, mDO.right_val);
+            break;
+         default:
+            cerr << "[MEMORY: STORE]: Invalid funct3: " << mDO.funct3 << '\n';
+            break;
+         }
+      }
+      // Load the appropriate number of bits, as the right datatype
+      else if (mDO.op == LOAD)
+      {
+         switch (mDO.funct3)
+         {
+         case 0b000: // LB
+            mMO.value = memory_read<int8_t>(mEO.result);
+            break;
+         case 0b001: // LH
+            mMO.value = memory_read<int16_t>(mEO.result);
+            break;
+         case 0b010: // LW
+            mMO.value = memory_read<int32_t>(mEO.result);
+            break;
+         case 0b011: // LD
+            mMO.value = memory_read<int64_t>(mEO.result);
+            break;
+         case 0b100: // LBU
+            mMO.value = memory_read<uint8_t>(mEO.result);
+            break;
+         case 0b101: // LHU
+            mMO.value = memory_read<uint16_t>(mEO.result);
+            break;
+         case 0b110: // LWU
+            mMO.value = memory_read<uint32_t>(mEO.result);
+            break;
+         default:
+            cerr << "[MEMORY: LOAD]: Invalid funct3: " << mDO.funct3 << '\n';
+            break;
+         }
+      }
+      else
+      {
+         // If this is not a LOAD or STORE, then this stage just copies
+         // the ALU result.
+         mMO.value = mEO.result;
+      }
+   }
+   MemoryOut &debug_memory_out()
+   {
+      return mMO;
+   }
+
+   // Code from the Writeback potion
+   void writeback() 
+   {
+      //Step 1: Write result to RD
+      set_xreg(mDO.rd, mMO.value);
+
+      // Step 2: Program counter
+      if(mDO.op == BRANCH && (
+        (mDO.funct3 == 0b000 && mEO.z)  ||
+        (mDO.funct3 == 0b001 && !mEO.z) ||
+        (mDO.funct3 == 0b100 && mEO.n)  ||
+        (mDO.funct3 == 0b101 && !mEO.n) )) 
+         mPC += mDO.offset;
+      else if(mDO.op == JAL) {
+         set_xreg(mDO.rd, mPC+4);
+         mPC = mMO.value;
+      }
+      else if(mDO.op == JALR)
+      {  
+         set_xreg(mDO.rd, mPC+4);
+         mPC = mMO.value;
+      }
+      else
+         mPC += 4;
+      
+      // Step 3: System calls
+      if(mDO.op == SYSTEM) {
+         switch(get_xreg(17)) 
+         {
+            case 0:
+               exit(0);
+               break;
+            case 1:
+               set_xreg(10, getchar());
+               break;
+            case 2:
+               putchar(static_cast<char>(get_xreg(10)));
+               break;
+         }
+      }
+      
+      //Secret step: Set x0 back to 0
+      mRegs[0] = 0;
    }
 };
 
@@ -593,24 +722,29 @@ int main(int argc, char **argv)
    // Reading the file into "ram" buffer
    fin.read(ptr, len);
    fin.close();
-
+   string trash;
    // Debugging
    while (mach.get_pc() < len)
    {
+      //cin >> trash;
       // Fetch an instruction into RAM and print HEX
       mach.fetch();
-      cout << mach.debug_fetch_out() << '\n';
+      //cout << mach.debug_fetch_out() << '\n';
 
       // Break down the instruction into arguements and print details
       mach.decode();
-      cout << mach.debug_decode_out() << '\n';
+      //cout << mach.debug_decode_out() << '\n';
 
       // Calculate the required math and print result / flags
       mach.execute();
-      cout << mach.debug_execute_out() << '\n';
+      //cout << mach.debug_execute_out() << '\n';
 
+      // Use memory for the load and store instructions as needed
+      mach.memory();
+      //cout << mach.debug_memory_out() << '\n';
+
+      mach.writeback();
       // Move to the next command
-      mach.set_pc(mach.get_pc() + 4);
    }
    return 0;
 }
