@@ -106,7 +106,6 @@ bool prime_partition::find_partition(int num) {
   // Check the prime larger than the remainder
   for(; *upper_bound >= *lower_bound; ++lower_bound)
   {
-    cout << "Trying " << *lower_bound << " with " << sum << " as a remainder.\n";
     vals.push_back(*lower_bound);
     if(find_partition(num))
       return true;
