@@ -1,0 +1,316 @@
+<title> CS302 -- Lab Assignment 5</title>
+<style> p.page { page-break-after: always; } </style>
+
+<h1> CS302 -- Lab Assignment 5 (150 pts: Fall 2022)</h1>
+
+<hr>
+<h3>Getting motivated</h3>
+Social network graphs can be used to suggest
+people you might want to connect with. In this lab, you will write
+a simple program for doing that. The point of the exercise
+is for you to learn how to create and manipulate a graph.
+<p>
+
+<hr>
+<h3>Lab submission and due date</h3>
+
+Your TAs will tell you how to submit your work to Canvas.
+Do not email your code to the instructor or the TAs as they cannot
+upload the code to Canvas for you.
+<p>
+
+The files Friendnet1.cpp, Friendnet2.cpp, and Friendnet3.cpp
+are due 11:59pm Thursday Oct 20, 2022.
+The submitted code must compile and execute without
+seg faulting to be graded.
+<p>
+
+<hr>
+<h3>Getting started</h3>
+
+Download lab5.tar from Canvas.
+This file gives you
+Hydra executables 
+sfriendnet1, sfriendnet2, and sfriendnet3,
+data file names.txt, skeleton program
+Friendnet.cpp, and a makefile. 
+Your job is to write the Friendnet programs and make them behave 
+as described next.
+<p>
+
+<UL>
+
+<LI>
+<b>Program basics</b>: The three programs all behave in 
+the same way. They differ only with respect to their
+implementation of the underlying graph. Their 
+mode of operation is as follows.
+<p>
+
+Read an unspecified number of names from stdin. Make
+the names the vertices of a graph. Storage and
+data manipulation is handled by a class called vlabels
+(short for vertex labels).
+Use s function called set_oldfriends() to establish
+who are friends.
+These connections become the edges of the graph.
+Storage and data manipulation is handled by a class
+called adjtable (short for adjacency table).
+Next,
+use a function called set_newfriends() to determine
+who might become new friends. 
+These are friends-of-friends who are not currently
+friends. In graph terms, you look for vertices
+that are two edges away. Friends and possible new
+friends are reported to stdout as shown below.
+<p>
+
+The main function parses command-line
+arguments and terminates with a usage statement unless
+the program is called correctly:
+<p>
+
+<pre>
+unix> cat datafile.txt | ./Friendnet [-seed=N] [-M0=N] [-M1=N]
+</pre>
+As usual, square brackets indicate an optional argument.
+Make no assumptions about their order. 
+The arguments are either present or not somewhere on the
+command-line. More about them below.
+<p>
+
+Proceed by deriving Friendnet1.cpp from the Friendnet.cpp 
+skeleton program given to you.
+Then derive Friendnet2.cpp from Friendnet1.cpp followed
+by Friendnet3.cpp from Friendnet2.cpp. The modifications
+needed for the latter two versions are all with respect to
+the two set_xxxfriends() functions.
+
+<LI>
+<b>Friendnet1.cpp</b>: Unlike for past assignments where
+the code was built up incrementally, this description will
+outline how each componenent should work when all is said
+and done.
+You may find it convenient to go back
+and forth between the vtable and adjtable classes, 
+the three functions that use them and the main function
+as opposed to writing any of them in their entirety.
+That said, you can develop and test set_oldfriends()
+before you work on set_newfriends().
+<p>
+
+Class vtable encapsulates a private 1D array of vertex 
+labels implemented as a vector of strings.
+Public member functions include size() which returns
+the number of elements in the array, push() which adds a
+new vertex label to the array, operator[] which returns
+a vertex label, as well as begin() and end() which
+return iterators that provide pointer-like
+access to the data in the 1D array.
+Some of these functions take arguments. Some don't.
+Some return data. Some don't. Figure that out on your
+own. Pass data by reference when that avoids
+unnecessary copying of data. Many of the functions can
+be implemented as vector wrapper functions.
+<p>
+
+Class adjtable encapsulates a dense 2D array of edges.
+This could be implemented as a vector of vectors
+of integers, but you are free to use your own array
+implementation if you prefer.
+Public member functions include size() which returns
+the number of rows of the 2D array, set_size() which
+allocates and initializes the 2D array given a number
+of rows, and operator[] which returns a reference 
+to a row of the 2D array. Like above, figure unspecified
+function arguments and return data types out on your own,
+and pass data by reference when that avoids
+unnecessary copying of data. 
+<p>
+
+The main function looks for and parses
+the optional command-line arguments mentioned above,
+then seeds the standard random number generator
+before reading names from stdin and adding them
+to a vtable called names. Use function vtable::push() 
+to do this. Sort the vtable content 
+(requires vtable::begin() and
+vtable::end() to be defined).
+The next step is to use function set_oldfriends()
+to populate an adjtable called friends that defines who 
+are friends followed by function set_newfriends()
+to populate an adjtable called new_friends that defines who 
+might be possible new friends.
+Function writetofile() is used write the friends data to
+a file called doknow1.txt and the new_friends data to
+a file called mightknow1.txt.
+<p>
+
+Function set_oldfriends() should work as follows.
+The adjtable friends is set to be an NxN array where
+N is the number of names considered.
+A random number of friendships M is generated for each name,
+namely, M0 &le; M &le; M1, where M0=1 and M1=2 by default
+but can be changed thru same named command-line arguments.
+You must ensure that 0 &lt; M0 &le; M1 &lt; 6 when accepting
+user defined values.
+The friendnet must produce a symmetric graph meaning if there
+is an edge between vertices i and j, then
+there should also be an edge between vertices j and i. 
+As a result,
+each vertex may end up being connected to more vertices than
+the ones defined above. That's OK.
+<p>
+
+Hint: Create an index list do_know[] = {0, 1, ..., N-1}.
+When creating friends for the ith name on the list,
+randomize the do_know list M times while ensuring that
+index i isn't among the M entries at the front of the list.
+This produces the desired random friend indices.
+Update the friends adjtable accordingly, e.g.,
+for k=0:M-1, j=do_know[k], friends[i][j]=1, friends[j][i]=1.
+You do not need to reset the do_know[] list between uses.
+<p>
+
+Function set_newfriends() should work as follows.
+The adjtable new_friends is set to be an NxN array where
+N is the number of names considered. 
+For each name, use nested loops to iterate over 
+friends-of-friends. Update new_friends to include potential
+new friends while making sure not to make someone
+a possible friend of themselves or to add some who is 
+already a friend. That is, new_friends[i][k] should only
+be 1 if friends[i][j] is 1, friends[j][k] is 1, 
+k is not equal to i and friend[i][k] is 0.
+This sounds more complicated than it is. Draw it out
+to see if visually.
+<p>
+
+Function writetofile() produces
+nicely formatted friends and new_friends output to the above 
+mentioned files depending which adjtable is given to it. 
+Determine the length of the longest name. 
+Use that to set the field width for each name written. 
+Only write eight names per line. See 
+output examples below. 
+When in doubt, run the solution executable
+and check its output.
+
+<LI> 
+<b>Friendnet2.cpp</b>: Replace the dense 2D-array used
+by adjtable in Friendnet1.cpp with a sparse 2D-array. Modify 
+functions as necessary. You may for example want to replace 
+many of the index for-loops with iterator loops. Hint: 
+The presence of an (i,j) entry indicates
+that an edge exists between those vertices. Hint: You may 
+need to use the std::sort and std::unique algorithms to 
+ensure order and uniqueness of the edges produced. See 
+the class12_graph1_handout.pdf code.
+The program behavior and output is identical to that of Friendnet1.
+<p>
+
+<LI> 
+<b>Friendnet3.cpp</b>: Replace the sparse 2D-array used
+by adjtable in Friendnet2.cpp with an ordered set
+(binary search tree) in the form of an std::set. 
+Modify functions as necessary. 
+Hint: This is mostly a matter of 
+replacing vector with set definitions although a few other
+changes are needed. Hint: The std::set supports finding keys.
+Hint: As mentioned above, the std::set produces a binary 
+search tree holding unique keys -- some of
+the extra work needed for the sparse 2D-array can 
+thus be removed.
+The program
+behavior and output is again identical to that of Friendnet1.
+<p>
+
+<LI>
+To summarize, the three Friendnet programs use
+different implementations for the graph that represents the 
+social network modeled:
+Friendnet1 uses a dense adjacency matrix in the form
+of a vector of vectors
+where all vectors have the same length; 
+Friendnet2 uses a sparse adjacency matrix in the form of
+of a vector of variable vectors (lists);
+and
+Friendnet3 uses a sparse adjacency matrix in the form of
+of a vector of sets.
+They all achieve the same goal but do so differently.
+<p>
+
+</UL>
+<hr>
+
+<!-- <p class="page"></p> -->
+<h3>Example friendnet1 output</h3>
+<pre>
+unix> cat names.txt | ./Friendnet1 -M0=1 -M1=1 -seed=302
+
+unix> head doknow1.txt
+ABE        : MILLICENT 
+ABEL       : REINALDO   ROSARIO    SLOAN     
+ABRAHAM    : LANCASTER  STOUT     
+ADAM       : DUNCAN    
+ADAMS      : MCDONALD  
+ADDIE      : FLEMING    GABRIELA   LANCASTER 
+ADELINE    : ROTH       TATE      
+ADKINS     : LENORA    
+AGNES      : ARTHUR     BOWMAN     MARCUS     NOEMI      REEVES     SIDNEY    
+AHMED      : QUINN     
+
+unix head mightknow1.txt
+ABE        : AUBREY     DAREN      GARRY      HARPER     MAC        WEBER     
+ABEL       : BLACKWELL  DWIGHT     LYDIA     
+ABRAHAM    : ADDIE     
+ADAM       : LEVINE    
+ADAMS      : HARRELL    HENDRIX    SEARS     
+ADDIE      : ABRAHAM    MACDONALD 
+ADELINE    : ANASTASIA  HECTOR     HOFFMAN   
+ADKINS     : STEVENSON 
+AGNES      : BARRERA    BARTLETT   BEACH      FOSTER     NANCY      QUINCY     REYNA      SOSA      
+AHMED      : MERLIN    
+
+unix> grep "^REINALDO " doknow1.txt
+REINALDO   : ABEL       LYDIA     
+
+unix> grep "^ROSARIO " doknow1.txt
+ROSARIO    : ABEL      
+
+unix> grep "^SLOAN " mightknow1.txt
+SLOAN      : ABEL       BLACKWELL  DWIGHT    
+</pre>
+
+So Abel is friends with Reinaldo, Rosario and Sloan. Since Rosario only knows Abel, 
+she doesn't add potential new friends. But Reinaldo also knows Lydia who
+therefore becomes a potential new friend for Adam.
+Likewise, Sloan also knows Blackwell and Dwigth who also 
+become potential new friends for Adam.
+Same for all the other entries.
+Warning: This quickly gets complicated to keep track of but it all comes down to
+determining who are two edges away in a graph the represents the relationships.
+<p>
+
+Hint: The "^NAME " syntax used for grep means that NAME must be found at the
+beginning of the line and have a space following it. Try "NAME" and see what
+happens.
+
+The Friendnet2 and Friendnet3 programs produce output identical to the above.
+
+<hr>
+
+<h3>Grading rubric</h3>
+
+<pre>
+30: Friendnet1: Classes vtable, adjtable
+20: Friendnet1: Main function all incl.
+20: Friendnet1: Function set_oldfriends() 
+20: Friendnet1: Function set_newfriends()
+10: Friendnet1: Function writetofile() 
+30: Friendnet2: Sparse 2D array modifications
+20: Friendnet3: Ordered set modifications
+</pre>
+
+Sun Oct  9 14:33:20 EDT 2022
+Mon Oct 17 13:51:28 EDT 2022
