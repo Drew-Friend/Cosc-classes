@@ -1,0 +1,336 @@
+/*
+  Drew Friend
+  11/4/22
+  Graphing shorest distances between "Cities" in relation to distance and time
+  Version 2
+*/
+#define _USE_MATH_DEFINES
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace std;
+
+enum TYPES { LOCAL, METRO, REGIONAL, NATIONAL };
+float conv = M_PI / 180; // *d>r, /r>d
+
+class city {
+  string name;
+  TYPES type;
+  float lat, lon;
+  int pop;
+
+public:
+  static int w;
+  city() {}
+  friend istream &operator>>(istream &in, city &c);
+  friend ostream &operator<<(ostream &in, city &c);
+  bool operator<(city other) { return pop < other.pop; }
+  void read_cityinfo(string fname, vector<city> &cities);
+  int getPop() { return pop; }
+  float getLat() { return lat; }
+  float getLon() { return lon; }
+  string getName() { return name; }
+  TYPES getType() { return type; }
+  void setType(TYPES newType) { this->type = newType; }
+};
+
+istream &operator>>(istream &in, city &c) {
+  string trash;
+  in >> c.name >> trash;
+  c.name += '_' + trash;
+  in >> trash >> c.lat >> c.lon >> c.pop;
+  c.type = (trash == "LOCAL") ? LOCAL : METRO;
+  c.lat *= conv;
+  c.lon *= conv;
+  return in;
+  // #city state type lat lng population
+}
+ostream &operator<<(ostream &out, city &c) {
+  string type;
+  if (c.type == LOCAL) {
+    type = "LOCAL";
+  } else if (c.type == REGIONAL) {
+    type = "REGIONAL";
+  } else {
+    type = "NATIONAL";
+  }
+  out << left << setfill('.') << setw(c.w) << c.name          //
+      << "  " << setfill(' ') << setw(8) << type << right     //
+      << "  " << setw(8) << c.pop << fixed                    //
+      << "  " << setw(7) << setprecision(2) << (c.lat / conv) //
+      << "  " << setw(7) << setprecision(2) << (c.lon / conv);
+  return out;
+}
+
+class costtable {
+public:
+  vector<vector<float>> table;
+  costtable(int size);
+  vector<float> &operator[](int i) { return table[i]; }
+};
+
+costtable::costtable(int size) {
+  table.resize(size);
+  // for (auto row : table)
+  //   row.resize(size);
+  for (int i = 0; i < size; ++i)
+    table[i].resize(size, 0.0);
+}
+
+void city::read_cityinfo(string fname, vector<city> &cities) {
+  int max_size = 0;
+  ifstream fin(fname);
+  string trash;
+  getline(fin, trash);
+  while (true) {
+    if (fin.eof())
+      break;
+    cities.push_back(city());
+    fin >> cities.back();
+    if (cities.back().name.size() > max_size)
+      max_size = cities.back().name.size();
+  }
+  fin.close();
+  cities.pop_back();
+  w = max_size + 3;
+  sort(cities.begin(), cities.end());
+  reverse(cities.begin(), cities.end());
+}
+void write_cityinfo(vector<city> &cities) {
+  ofstream fout("city_info.txt");
+  for (int i = 0; i < cities.size(); ++i) {
+    fout << setw(4) << right << i << "  " << cities[i] << '\n';
+  }
+  fout.close();
+}
+
+void create_citydist(costtable &dists, vector<city> cities) {
+  for (int i = 0; i < cities.size(); ++i) {
+    for (int j = 0; j < i; ++j) {
+      dists[i][j] =
+          7964 *
+          asin(sqrt(
+              pow(sin((cities[i].getLat() - cities[j].getLat()) / 2), 2) +
+              cos(cities[i].getLat()) * cos(cities[j].getLat()) *
+                  pow(sin((cities[i].getLon() - cities[j].getLon()) / 2), 2)));
+      dists[i][j] = 5 * round(dists[i][j] / 5);
+    }
+  }
+}
+void create_citytime(costtable dists, costtable &times, vector<vector<int>> adj,
+                     vector<city> cities) {
+  for (int i = 0; i < cities.size(); ++i) {
+    for (int j = 0; j < adj.size(); ++j) {
+      int k = adj[j][1];
+      if (adj[j][0] == i) {
+        if (cities[i].getType() == NATIONAL && cities[k].getType() == NATIONAL)
+          times[i][k] = dists[i][k] / 500;
+        else
+          times[i][k] = dists[i][k] / 55;
+      }
+    }
+  }
+}
+void create_citygraph(vector<city> &cities, vector<vector<int>> &adj,
+                      costtable dists) {
+  // For each city:
+  // If it's big enough, and there are no nearby national cities, bump it up
+  // because it is previously sorted, you only need to check previously set
+  // cities
+  for (int i = 0; i < cities.size(); ++i)
+    if (cities[i].getType() == METRO) {
+      if (cities[i].getPop() >= 2000000) {
+        cities[i].setType(NATIONAL);
+        for (int j = 0; j < i; ++j) {
+          if (dists[i][j] < 200 && cities[j].getType() == NATIONAL) {
+            cities[i].setType(REGIONAL);
+          }
+        }
+      } else if (cities[i].getPop() >= 500000) {
+        cities[i].setType(REGIONAL);
+      } else {
+        cities[i].setType(LOCAL);
+      }
+    }
+
+  // For each city: check connections based on rules in html
+  for (int i = 0; i < cities.size(); ++i) {
+
+    if (cities[i].getType() == NATIONAL) {
+      for (int j = 0; j < i; ++j)
+        if (cities[j].getType() == NATIONAL)
+          adj.push_back({i, j});
+    } else if (cities[i].getType() == REGIONAL) {
+      int min1 = -1, min2 = -1, min3 = -1;
+      for (int j = 0; j < i; ++j) {
+        if ((dists[i][j] < dists[i][min1] || min1 == -1) &&
+            cities[j].getType() != LOCAL) {
+          min2 = min1;
+          min1 = j;
+        } else if ((dists[i][j] < dists[i][min2] || min2 == -1) &&
+                   cities[j].getType() != LOCAL) {
+          min3 = min2;
+          min2 = j;
+        } else if ((dists[i][j] < dists[i][min3] || min3 == -1) &&
+                   cities[j].getType() != LOCAL) {
+          min3 = j;
+        }
+      }
+      adj.push_back({i, min1});
+      adj.push_back({i, min2});
+      adj.push_back({i, min3});
+    } else {
+      for (int j = 0; j < i; ++j) {
+        if (cities[j].getType() == LOCAL && dists[i][j] <= 75)
+          adj.push_back({i, j});
+      }
+      int min1 = -1, min2 = -1;
+      for (int j = 0; j < i; ++j) {
+        if ((dists[i][j] < dists[i][min1] || min1 == -1) &&
+            cities[j].getType() != LOCAL) {
+          min2 = min1;
+          min1 = j;
+        } else if ((dists[i][j] < dists[i][min2] || min2 == -1) &&
+                   cities[j].getType() != LOCAL) {
+          min2 = j;
+        }
+      }
+      adj.push_back({i, min1});
+      adj.push_back({i, min2});
+    }
+  }
+}
+
+void write_citydist(vector<city> &cities, costtable &dists,
+                    vector<vector<int>> adj) {
+  bool used = false;
+  vector<int> seen;
+  ofstream fout("city_dist.txt");
+  for (int i = 1; i < cities.size(); ++i) {
+    used = false;
+    seen.clear();
+    for (int j = 0; j < adj.size(); ++j) {
+      if (adj[j][0] == i && !count(seen.begin(), seen.end(), j)) {
+        used = true;
+        seen.push_back(j);
+        fout << setw(4) << right << i << "  " << setfill('.') << left
+             << setw(cities[i].w) << cities[i].getName() << " to " << fixed
+             << setprecision(1) << setw(cities[i].w)
+             << cities[adj[j][1]].getName() << "  " << setprecision(1)
+             << setfill(' ') << setw(6) << right << dists[i][adj[j][1]]
+             << " miles\n";
+      }
+    }
+    if (used)
+      fout << '\n';
+  }
+  fout.close();
+}
+void write_citytime(vector<city> &cities, costtable &times,
+                    vector<vector<int>> adj) {
+  bool used = false;
+  vector<int> seen;
+  ofstream fout("city_time.txt");
+  for (int i = 1; i < cities.size(); ++i) {
+    used = false;
+    seen.clear();
+    for (int j = 0; j < adj.size(); ++j) {
+      used = true;
+      if (adj[j][0] == i && !count(seen.begin(), seen.end(), j)) {
+        seen.push_back(j);
+        fout << setw(4) << right << i << "  " << setfill('.') << left
+             << setw(cities[i].w) << cities[i].getName() << " to " << fixed
+             << setprecision(1) << setw(cities[i].w)
+             << cities[adj[j][1]].getName() << "  " << setprecision(1)
+             << setfill(' ') << setw(6) << right << times[i][adj[j][1]]
+             << " hours\n";
+      }
+    }
+    if (used)
+      fout << '\n';
+  }
+  fout.close();
+}
+void write_citygraph(vector<city> &cities, costtable &dists, costtable &time,
+                     vector<vector<int>> adj) {
+  int k = -1;
+  vector<int> seen;
+  ofstream fout("city_graph.txt");
+  for (int i = 0; i < cities.size(); ++i) {
+    seen.clear();
+    fout << setw(4) << right << i << " " << cities[i].getName() << '\n';
+    for (int j = 0; j < adj.size(); ++j) {
+      if (adj[j][0] == i)
+        k = adj[j][1];
+      else if (adj[j][1] == i)
+        k = adj[j][0];
+      if (k != -1 && !count(seen.begin(), seen.end(), k)) {
+        seen.push_back(k);
+        fout << setw(6) << right << k << " " << left << setw(cities[i].w)
+             << setfill('.') << cities[k].getName() << "  ";
+        if (i > k)
+          fout << fixed << setprecision(1) << setfill(' ') << setw(6)
+               << dists[i][k] << " miles  " << time[i][k] << " hours\n";
+        else
+          fout << fixed << setprecision(1) << setfill(' ') << setw(6)
+               << dists[k][i] << " miles  " << time[k][i] << " hours\n";
+      }
+    }
+    fout << '\n';
+  }
+  fout.close();
+}
+
+void trim_table(vector<vector<int>> &adj) {
+  for (auto pair : adj)
+    sort(pair.begin(), pair.end());
+  sort(adj.begin(), adj.end());
+  adj.erase(unique(adj.begin(), adj.end()), adj.end());
+}
+
+// dijkstra_route() {}
+
+int city::w = 0;
+int main(int argc, char *argv[]) {
+  if (argc != 3) {
+    cerr << "Usage:   ./Citysim -[mode] [filename].txt";
+    return 1;
+  }
+  string mode = argv[1];
+  string fname = argv[2];
+  // commandline option decoding
+
+  vector<city> cities;
+  vector<vector<int>> adj_table;
+
+  city().read_cityinfo("uscities.txt", cities);
+
+  costtable dist_table(cities.size());
+  costtable time_table(cities.size());
+  create_citydist(dist_table, cities);
+
+  create_citygraph(cities, adj_table, dist_table);
+  trim_table(adj_table);
+  create_citytime(dist_table, time_table, adj_table, cities);
+
+  write_cityinfo(cities);
+  write_citydist(cities, dist_table, adj_table);
+  write_citytime(cities, time_table, adj_table);
+  write_citygraph(cities, dist_table, time_table, adj_table);
+
+  // if (mode == graphinfo) {
+  //   write_cityinfo()
+  //   write_distancetable() write_timetable()
+  //   write_citygraph()
+  //   return from program
+  // }
+
+  // while (not done) {
+  //   enter > from, to cities dijkstra_route(costmode, from, to)
+  // }
+}

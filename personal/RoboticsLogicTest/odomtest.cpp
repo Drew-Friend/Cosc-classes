@@ -17,19 +17,27 @@ void undo_trig(vector<double> &nums, int angle) {
 }
 
 void pol_cart(vector<double> &nums, int angle) {
-  if (angle < 90) {
-    nums[4] = cos(angle * conv) * nums[2] - sin(angle * conv) * nums[3];
-    nums[5] = sin(angle * conv) * nums[2] + cos(angle * conv) * nums[3];
-  } else if (angle < 180) {
-    nums[4] = cos(angle * conv) * nums[2] + sin(angle * conv) * nums[3];
-    nums[5] = sin(angle * conv) * nums[2] - cos(angle * conv) * nums[3];
-  } else if (angle < 270) {
-    nums[4] = cos(angle * conv) * nums[2] - sin(angle * conv) * nums[3];
-    nums[5] = sin(angle * conv) * nums[2] + cos(angle * conv) * nums[3];
-  } else {
-    nums[4] = cos(angle * conv) * nums[2] + sin(angle * conv) * nums[3];
-    nums[5] = sin(angle * conv) * nums[2] - cos(angle * conv) * nums[3];
-  }
+  // if (angle < 90) {
+  nums[4] = cos(angle * conv) * nums[2] - sin(angle * conv) * nums[3];
+  nums[5] = sin(angle * conv) * nums[2] + cos(angle * conv) * nums[3];
+  // } else if (angle < 180) {
+  //   nums[4] = cos(angle * conv) * nums[2] + sin(angle * conv) * nums[3];
+  //   nums[5] = sin(angle * conv) * nums[2] - cos(angle * conv) * nums[3];
+  // } else if (angle < 270) {
+  //   nums[4] = cos(angle * conv) * nums[2] - sin(angle * conv) * nums[3];
+  //   nums[5] = sin(angle * conv) * nums[2] + cos(angle * conv) * nums[3];
+  // } else {
+  //   nums[4] = cos(angle * conv) * nums[2] + sin(angle * conv) * nums[3];
+  //   nums[5] = sin(angle * conv) * nums[2] - cos(angle * conv) * nums[3];
+  // }
+}
+
+void find_X(vector<double> &nums, int angle) {
+  nums[2] = nums[0];
+  nums[3] = nums[1];
+
+  nums[4] = cos(angle * conv) * nums[2] - sin(angle * conv) * nums[3];
+  nums[5] = sin(angle * conv) * nums[2] + cos(angle * conv) * nums[3];
 }
 
 // Vector is as follows:
@@ -48,12 +56,13 @@ void comp(vector<double> nums, int angle) {
 int main() {
   double x, y;
   vector<double> robot_moved(6);
-  for (int i = 0; i < 360; i += 20) {
-    for (int j = 10; j < 360; j += 20) {
+  for (int i = 270; i < 360; i += 5) {
+    for (int j = 0; j < 360; j += 1) {
       robot_moved[0] = cos(j * conv);
       robot_moved[1] = sin(j * conv);
-      field_oriented(robot_moved, i);
-      pol_cart(robot_moved, i);
+      // field_oriented(robot_moved, i);
+      // undo_trig(robot_moved, i);
+      find_X(robot_moved, j);
       comp(robot_moved, i);
     }
   }
